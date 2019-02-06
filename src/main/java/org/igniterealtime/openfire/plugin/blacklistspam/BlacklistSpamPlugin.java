@@ -98,7 +98,7 @@ public class BlacklistSpamPlugin implements Plugin
                 }
             }
         },
-            JiveGlobals.getLongProperty( "blacklistspam.refresh.interval", TimeUnit.DAYS.toMillis( 1 ) ) ,
+            0,
             JiveGlobals.getLongProperty( "blacklistspam.refresh.interval", TimeUnit.DAYS.toMillis( 1 ) )
         );
     }
