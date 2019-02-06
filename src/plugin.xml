@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<plugin>
+    <class>org.igniterealtime.openfire.plugin.blacklistspam.BlacklistSpamPlugin</class>
+    <name>Spam blacklist</name>
+    <description>Uses an external blacklist to reject traffic from specific addresses.</description>
+    <author>Ignite Realtime</author>
+    <version>${project.version}</version>
+    <date>02/06/2019</date>
+</plugin>
