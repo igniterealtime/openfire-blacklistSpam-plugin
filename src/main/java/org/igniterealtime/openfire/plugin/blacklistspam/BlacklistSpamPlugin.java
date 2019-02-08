@@ -77,7 +77,7 @@ public class BlacklistSpamPlugin implements Plugin
             @Override
             public void run()
             {
-                final String urlValue = JiveGlobals.getProperty( "blacklistspam.connection.request.url", "https://raw.githubusercontent.com/JabberSPAM/blacklist/master/blacklist.txt" );
+                final String urlValue = JiveGlobals.getProperty( "blacklistspam.connection.request.url", "https://igniterealtime.org/JabberSPAM/blacklist.txt" );
                 try
                 {
                     final URL url = new URL( urlValue );
