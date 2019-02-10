@@ -20,26 +20,34 @@ import org.jivesoftware.openfire.interceptor.PacketInterceptor;
 import org.jivesoftware.openfire.interceptor.PacketRejectedException;
 import org.jivesoftware.openfire.session.Session;
 import org.jivesoftware.util.JiveGlobals;
+import org.jivesoftware.util.PropertyEventListener;
 import org.xmpp.packet.Packet;
 
+import java.util.Arrays;
+import java.util.Map;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
 
 /**
  * A {@link PacketInterceptor} that rejects stanzas, based on a blacklist.
- *
+ * <p>
  * Upon construction of a new instance no blacklist is defined, and no stanzas
  * will be blocked.
  *
  * @author Guus der Kinderen, guus.der.kinderen@gmail.com
  */
-public class StanzaBlocker implements PacketInterceptor
+public class StanzaBlocker implements PacketInterceptor, PropertyEventListener
 {
     private Blacklist blacklist;
 
-    private boolean checkIncoming = JiveGlobals.getBooleanProperty( "blacklistspam.check.incoming", true );
-    private boolean checkOutgoing = JiveGlobals.getBooleanProperty( "blacklistspam.check.outgoing", false );
+    private boolean checkIncoming;
+    private boolean checkOutgoing;
 
     private final ReentrantReadWriteLock rwl = new ReentrantReadWriteLock();
+
+    public StanzaBlocker()
+    {
+        refreshPropertyValues();
+    }
 
     @Override
     public void interceptPacket( final Packet packet, final Session session, final boolean incoming, final boolean processed ) throws PacketRejectedException
@@ -48,9 +56,9 @@ public class StanzaBlocker implements PacketInterceptor
         try
         {
             if ( blacklist != null
-                && ( (checkIncoming && incoming ) || ( checkOutgoing && processed ) )
+                && ((checkIncoming && incoming) || (checkOutgoing && processed))
                 && blacklist.isOnBlacklist( packet.getFrom() )
-               )
+            )
             {
                 throw new PacketRejectedException( "Rejected packet sent by entity '" + packet.getFrom() + "' that is on the blacklist." );
             }
@@ -63,7 +71,7 @@ public class StanzaBlocker implements PacketInterceptor
 
     /**
      * Replaces the current blacklist (if any) with a new instance.
-     *
+     * <p>
      * This method is thread-safe.
      *
      * @param blacklist Blacklist, can be null.
@@ -73,5 +81,58 @@ public class StanzaBlocker implements PacketInterceptor
         rwl.writeLock().lock();
         this.blacklist = blacklist;
         rwl.writeLock().unlock();
+    }
+
+    /**
+     * Resets all values that are obtained through properties.
+     */
+    protected void refreshPropertyValues()
+    {
+        rwl.writeLock().lock();
+        try
+        {
+            checkIncoming = JiveGlobals.getBooleanProperty( "blacklistspam.check.incoming", true );
+            checkOutgoing = JiveGlobals.getBooleanProperty( "blacklistspam.check.outgoing", false );
+        }
+        finally
+        {
+            rwl.writeLock().unlock();
+        }
+    }
+
+    @Override
+    public void propertySet( final String property, final Map<String, Object> params )
+    {
+        if ( Arrays.asList( "blacklistspam.check.incoming", "blacklistspam.check.outgoing" ).contains( property ) )
+        {
+            refreshPropertyValues();
+        }
+    }
+
+    @Override
+    public void propertyDeleted( final String property, final Map<String, Object> params )
+    {
+        if ( Arrays.asList( "blacklistspam.check.incoming", "blacklistspam.check.outgoing" ).contains( property ) )
+        {
+            refreshPropertyValues();
+        }
+    }
+
+    @Override
+    public void xmlPropertySet( final String property, final Map<String, Object> params )
+    {
+        if ( Arrays.asList( "blacklistspam.check.incoming", "blacklistspam.check.outgoing" ).contains( property ) )
+        {
+            refreshPropertyValues();
+        }
+    }
+
+    @Override
+    public void xmlPropertyDeleted( final String property, final Map<String, Object> params )
+    {
+        if ( Arrays.asList( "blacklistspam.check.incoming", "blacklistspam.check.outgoing" ).contains( property ) )
+        {
+            refreshPropertyValues();
+        }
     }
 }

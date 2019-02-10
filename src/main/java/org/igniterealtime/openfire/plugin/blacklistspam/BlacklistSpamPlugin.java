@@ -20,12 +20,16 @@ import org.jivesoftware.openfire.container.Plugin;
 import org.jivesoftware.openfire.container.PluginManager;
 import org.jivesoftware.openfire.interceptor.InterceptorManager;
 import org.jivesoftware.util.JiveGlobals;
+import org.jivesoftware.util.PropertyEventDispatcher;
+import org.jivesoftware.util.PropertyEventListener;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.io.File;
 import java.net.MalformedURLException;
 import java.net.URL;
+import java.util.Arrays;
+import java.util.Map;
 import java.util.Timer;
 import java.util.TimerTask;
 import java.util.concurrent.TimeUnit;
@@ -37,7 +41,7 @@ import java.util.concurrent.TimeUnit;
  *
  * @author Guus der Kinderen, guus.der.kinderen@gmail.com
  */
-public class BlacklistSpamPlugin implements Plugin
+public class BlacklistSpamPlugin implements Plugin, PropertyEventListener
 {
     private static final Logger Log = LoggerFactory.getLogger( BlacklistSpamPlugin.class );
 
@@ -48,14 +52,23 @@ public class BlacklistSpamPlugin implements Plugin
     public synchronized void initializePlugin( final PluginManager manager, final File pluginDirectory )
     {
         stanzaBlocker = new StanzaBlocker();
+        PropertyEventDispatcher.addListener( stanzaBlocker );
         InterceptorManager.getInstance().addInterceptor( stanzaBlocker );
+        PropertyEventDispatcher.addListener( this );
         rescheduleTask();
     }
 
     @Override
     public synchronized void destroyPlugin()
     {
-        InterceptorManager.getInstance().removeInterceptor( stanzaBlocker );
+        PropertyEventDispatcher.removeListener( this );
+
+        if ( stanzaBlocker != null )
+        {
+            InterceptorManager.getInstance().removeInterceptor( stanzaBlocker );
+            PropertyEventDispatcher.removeListener( stanzaBlocker );
+        }
+
         if ( timer != null )
         {
             timer.cancel();
@@ -101,5 +114,41 @@ public class BlacklistSpamPlugin implements Plugin
             0,
             JiveGlobals.getLongProperty( "blacklistspam.refresh.interval", TimeUnit.DAYS.toMillis( 1 ) )
         );
+    }
+
+    @Override
+    public void propertySet( final String property, final Map<String, Object> params )
+    {
+        if ( Arrays.asList( "blacklistspam.refresh.interval" ).contains( property ) )
+        {
+            rescheduleTask();
+        }
+    }
+
+    @Override
+    public void propertyDeleted( final String property, final Map<String, Object> params )
+    {
+        if ( Arrays.asList( "blacklistspam.refresh.interval" ).contains( property ) )
+        {
+            rescheduleTask();
+        }
+    }
+
+    @Override
+    public void xmlPropertySet( final String property, final Map<String, Object> params )
+    {
+        if ( Arrays.asList( "blacklistspam.refresh.interval" ).contains( property ) )
+        {
+            rescheduleTask();
+        }
+    }
+
+    @Override
+    public void xmlPropertyDeleted( final String property, final Map<String, Object> params )
+    {
+        if ( Arrays.asList( "blacklistspam.refresh.interval" ).contains( property ) )
+        {
+            rescheduleTask();
+        }
     }
 }
