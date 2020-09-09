@@ -12,7 +12,7 @@
 
     <groupId>org.igniterealtime.openfire.plugin</groupId>
     <artifactId>blacklistspam</artifactId>
-    <version>1.0.0-SNAPSHOT</version>
+    <version>1.0.0</version>
 
     <name>Blacklist spam Plugin</name>
     <description>Blocks data sent from domains sent by servers on the JabberSPAM blacklist.</description>
