@@ -74,6 +74,31 @@ The plugin will then be automatically deployed. To upgrade to a new version,
 copy the new monitoring.jar file over the existing file.
 </p>
 
+<h2>Configuration</h2>
+
+<p>
+The list of addresses that are blocked is obtained using a HTTP call from an URL
+that is configured by the property <tt>blacklistspam.connection.request.url</tt>
+The default value for this property is <tt>https://igniterealtime.org/JabberSPAM/blacklist.txt</tt>
+The HTTP result is expected to contain a plain-text body, with JIDs (domains)
+separated by newlines (one JID per line).
+</p>
+
+<p>
+The default behavior of the plugin is the verify stanzas that arrive from other XMPP domains.
+The plugin can also be configured to verify stanzas that are outbound. This behavior is
+configured by the <tt>blacklistspam.check.incoming</tt> and <tt>blacklistspam.check.outgoing</tt>
+properties, which require a boolean value.
+</p>
+
+<p>
+To facilitate analysis of stanzas that are blocked, the plugin can be configured to write
+all blocked stanzas to disk. To enable this functionality, set the value for the
+<tt>blacklistspam.blockedlog.enabled</tt> property to <tt>true</tt>. When enabled,
+all blocked stanzas are logged in files in a folder named <tt>blacklist</tt> in the
+<tt>&lt;OPENFIRE-HOME&gt;/</tt> folder.
+</p>
+
 <h2>Attribution</h2>
 <p>
 Icons made by <a href="https://www.flaticon.com/authors/smashicons" title="Smashicons">Smashicons</a>

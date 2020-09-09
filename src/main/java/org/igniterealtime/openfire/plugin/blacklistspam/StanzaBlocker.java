@@ -21,8 +21,18 @@ import org.jivesoftware.openfire.interceptor.PacketRejectedException;
 import org.jivesoftware.openfire.session.Session;
 import org.jivesoftware.util.JiveGlobals;
 import org.jivesoftware.util.PropertyEventListener;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.xmpp.packet.Packet;
 
+import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
+import java.nio.file.StandardOpenOption;
+import java.time.Instant;
+import java.time.ZoneId;
+import java.time.format.DateTimeFormatter;
 import java.util.Arrays;
 import java.util.Map;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
@@ -37,6 +47,8 @@ import java.util.concurrent.locks.ReentrantReadWriteLock;
  */
 public class StanzaBlocker implements PacketInterceptor, PropertyEventListener
 {
+    private static final Logger Log = LoggerFactory.getLogger( StanzaBlocker.class );
+
     private Blacklist blacklist;
 
     private boolean checkIncoming;
@@ -55,17 +67,45 @@ public class StanzaBlocker implements PacketInterceptor, PropertyEventListener
         rwl.readLock().lock();
         try
         {
-            if ( blacklist != null
+            if ( blacklist != null && packet.getFrom() != null
                 && ((checkIncoming && incoming) || (checkOutgoing && processed))
                 && blacklist.isOnBlacklist( packet.getFrom() )
             )
             {
-                throw new PacketRejectedException( "Rejected packet sent by entity '" + packet.getFrom() + "' that is on the blacklist." );
+                Log.info( "Rejected stanza sent by entity '{}' that is on the blacklist.", packet.getFrom() );
+                try {
+                    if ( JiveGlobals.getBooleanProperty( "blacklistspam.blockedlog.enabled", false ) ) {
+                        store(packet);
+                    }
+                } catch ( final Exception e ) {
+                    Log.warn( "An unexpected exception occurred while trying to store a rejected stanza.", e );
+                }
+                throw new PacketRejectedException( "Rejected stanza sent by entity '" + packet.getFrom() + "' that is on the blacklist." );
             }
         }
         finally
         {
             rwl.readLock().unlock();
+        }
+    }
+
+    /**
+     * Stores a stanza in a text file. This is intended to facilitate future analysis of spam.
+     *
+     * @param stanza The stanza to be stored (cannot be null).
+     */
+    public void store( final Packet stanza )
+    {
+        final Path logDir = Paths.get(JiveGlobals.getHomeDirectory(), "blacklist", "blocked" );
+        final Instant now = Instant.now();
+        final String fileName = DateTimeFormatter.BASIC_ISO_DATE.withZone(ZoneId.systemDefault()).format(now).concat(".txt" );
+        final String data = DateTimeFormatter.ISO_INSTANT.withZone(ZoneId.systemDefault()).format(now) + " from [" + stanza.getFrom() + "]: " + stanza.toXML() + System.lineSeparator();
+
+        try {
+            Files.createDirectories( logDir );
+            Files.write( logDir.resolve( fileName ), data.getBytes(StandardCharsets.UTF_8), StandardOpenOption.CREATE, StandardOpenOption.APPEND );
+        } catch ( final Exception e ) {
+            Log.warn( "An exception occurred while attempting to store blocked stanza to file.", e );
         }
     }
 
