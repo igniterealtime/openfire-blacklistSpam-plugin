@@ -1,5 +1,5 @@
 /*
- * Copyright 2019 Ignite Realtime Foundation
+ * Copyright 2019-2024 Ignite Realtime Foundation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -28,7 +28,6 @@ import org.xmpp.packet.Packet;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.nio.file.Paths;
 import java.nio.file.StandardOpenOption;
 import java.time.Instant;
 import java.time.ZoneId;
@@ -96,7 +95,7 @@ public class StanzaBlocker implements PacketInterceptor, PropertyEventListener
      */
     public void store( final Packet stanza )
     {
-        final Path logDir = Paths.get(JiveGlobals.getHomeDirectory(), "blacklist", "blocked" );
+        final Path logDir = JiveGlobals.getHomePath().resolve("blacklist").resolve("blocked");
         final Instant now = Instant.now();
         final String fileName = DateTimeFormatter.BASIC_ISO_DATE.withZone(ZoneId.systemDefault()).format(now).concat(".txt" );
         final String data = DateTimeFormatter.ISO_INSTANT.withZone(ZoneId.systemDefault()).format(now) + " from [" + stanza.getFrom() + "]: " + stanza.toXML() + System.lineSeparator();
