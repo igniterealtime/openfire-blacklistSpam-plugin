@@ -61,6 +61,7 @@ public class BlacklistSpamPlugin implements Plugin
         .setPlugin("Spam blacklist")
         .setChronoUnit(ChronoUnit.MILLIS)
         .setDefaultValue(Duration.ofDays(1))
+        .setMinValue(Duration.ofMinutes(5))
         .setDynamic(true)
         .addListener((v) -> ((BlacklistSpamPlugin) XMPPServer.getInstance().getPluginManager().getPluginByName("Spam blacklist").orElseThrow()).rescheduleTask())
         .build();
