@@ -1,5 +1,5 @@
 /*
- * Copyright 2019 Ignite Realtime Foundation
+ * Copyright 2019-2024 Ignite Realtime Foundation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,7 +16,7 @@
 
 package org.igniterealtime.openfire.plugin.blacklistspam;
 
-import org.jivesoftware.util.JiveGlobals;
+import org.jivesoftware.util.SystemProperty;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.xmpp.packet.JID;
@@ -26,6 +26,8 @@ import java.io.IOException;
 import java.io.InputStreamReader;
 import java.net.HttpURLConnection;
 import java.net.URL;
+import java.time.Duration;
+import java.time.temporal.ChronoUnit;
 import java.util.*;
 
 /**
@@ -36,6 +38,49 @@ import java.util.*;
 public class BlacklistFactory
 {
     private static final Logger Log = LoggerFactory.getLogger( BlacklistFactory.class );
+
+    /**
+     * Timeout to be used when opening a communications link based on the URL from where to obtain the block list.
+     */
+    public static final SystemProperty<Duration> CONNECTION_CONNECT_TIMEOUT = SystemProperty.Builder.ofType(Duration.class)
+        .setKey("blacklistspam.connection.connect.timeout")
+        .setPlugin("Spam blacklist")
+        .setChronoUnit(ChronoUnit.MILLIS)
+        .setDefaultValue(Duration.ofMinutes(1))
+        .setDynamic(true)
+        .build();
+
+    /**
+     * Read timeout to be used when retrieving the block list from the configured URL.
+     */
+    public static final SystemProperty<Duration> CONNECTION_READ_TIMEOUT = SystemProperty.Builder.ofType(Duration.class)
+        .setKey("blacklistspam.connection.read.timeout")
+        .setPlugin("Spam blacklist")
+        .setChronoUnit(ChronoUnit.MILLIS)
+        .setDefaultValue(Duration.ofMinutes(1))
+        .setDynamic(true)
+        .build();
+
+    /**
+     * Value for the 'Content-Type' HTTP request header that is used to read the block list.
+     */
+    public static final SystemProperty<String> CONNECTION_REQUEST_ACCEPT = SystemProperty.Builder.ofType(String.class)
+        .setKey("blacklistspam.connection.request.accept")
+        .setPlugin("Spam blacklist")
+        .setDefaultValue("text/plain")
+        .setDynamic(true)
+        .build();
+
+    /**
+     * Sets whether HTTP redirects (requests with response code 3xx) should be automatically followed when performing
+     * request to read the block list.
+     */
+    public static final SystemProperty<Boolean> CONNECTION_REQUEST_FOLLOW_REDIRECTS = SystemProperty.Builder.ofType(Boolean.class)
+        .setKey("blacklistspam.connection.request.followredirects")
+        .setPlugin("Spam blacklist")
+        .setDefaultValue(true)
+        .setDynamic(true)
+        .build();
 
     /**
      * Creates a blacklist based on the content of a resource obtained via HTTP.
@@ -59,10 +104,10 @@ public class BlacklistFactory
             final HttpURLConnection con = (HttpURLConnection) url.openConnection();
             con.setRequestMethod( "GET" );
 
-            con.setConnectTimeout( JiveGlobals.getIntProperty( "blacklistspam.connection.connect.timeout", 60000 ) );
-            con.setReadTimeout( JiveGlobals.getIntProperty( "blacklistspam.connection.read.timeout", 60000 ) );
-            con.setRequestProperty( "Content-Type", JiveGlobals.getProperty( "blacklistspam.connection.request.accept", "text/plain" ) );
-            con.setInstanceFollowRedirects( JiveGlobals.getBooleanProperty( "blacklistspam.connection.request.followredirects", true ) );
+            con.setConnectTimeout((int) CONNECTION_CONNECT_TIMEOUT.getValue().toMillis());
+            con.setReadTimeout((int) CONNECTION_READ_TIMEOUT.getValue().toMillis());
+            con.setRequestProperty( "Content-Type", CONNECTION_REQUEST_ACCEPT.getValue() );
+            con.setInstanceFollowRedirects( CONNECTION_REQUEST_FOLLOW_REDIRECTS.getValue() );
 
             final int responseCode = con.getResponseCode();
             final String responseMessage = con.getResponseMessage();

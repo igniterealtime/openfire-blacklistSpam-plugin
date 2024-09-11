@@ -16,11 +16,12 @@
 
 package org.igniterealtime.openfire.plugin.blacklistspam;
 
+import org.jivesoftware.openfire.XMPPServer;
 import org.jivesoftware.openfire.interceptor.PacketInterceptor;
 import org.jivesoftware.openfire.interceptor.PacketRejectedException;
 import org.jivesoftware.openfire.session.Session;
 import org.jivesoftware.util.JiveGlobals;
-import org.jivesoftware.util.PropertyEventListener;
+import org.jivesoftware.util.SystemProperty;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.xmpp.packet.Packet;
@@ -32,8 +33,6 @@ import java.nio.file.StandardOpenOption;
 import java.time.Instant;
 import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
-import java.util.Arrays;
-import java.util.Map;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
 
 /**
@@ -44,9 +43,41 @@ import java.util.concurrent.locks.ReentrantReadWriteLock;
  *
  * @author Guus der Kinderen, guus.der.kinderen@gmail.com
  */
-public class StanzaBlocker implements PacketInterceptor, PropertyEventListener
+public class StanzaBlocker implements PacketInterceptor
 {
     private static final Logger Log = LoggerFactory.getLogger( StanzaBlocker.class );
+
+    /**
+     * Store blocked stanzas in a file on disk.
+     */
+    public static final SystemProperty<Boolean> BLOCKEDLOG_ENABLED = SystemProperty.Builder.ofType(Boolean.class)
+        .setKey("blacklistspam.blockedlog.enabled")
+        .setPlugin("Spam blacklist")
+        .setDefaultValue(false)
+        .setDynamic(true)
+        .build();
+
+    /**
+     * Verify stanzas that are inbound (being sent to the server).
+     */
+    public static final SystemProperty<Boolean> CHECK_INCOMING = SystemProperty.Builder.ofType(Boolean.class)
+        .setKey("blacklistspam.check.incoming")
+        .setPlugin("Spam blacklist")
+        .setDefaultValue(true)
+        .setDynamic(true)
+        .addListener((v) -> ((BlacklistSpamPlugin) XMPPServer.getInstance().getPluginManager().getPluginByName("Spam blacklist").orElseThrow()).getStanzaBlocker().refreshPropertyValues())
+        .build();
+
+    /**
+     * Verify stanzas that are outbound (being sent from the server).
+     */
+    public static final SystemProperty<Boolean> CHECK_OUTGOING = SystemProperty.Builder.ofType(Boolean.class)
+        .setKey("blacklistspam.check.outgoing")
+        .setPlugin("Spam blacklist")
+        .setDefaultValue(false)
+        .setDynamic(true)
+        .addListener((v) -> ((BlacklistSpamPlugin) XMPPServer.getInstance().getPluginManager().getPluginByName("Spam blacklist").orElseThrow()).getStanzaBlocker().refreshPropertyValues())
+        .build();
 
     private Blacklist blacklist;
 
@@ -73,7 +104,7 @@ public class StanzaBlocker implements PacketInterceptor, PropertyEventListener
             {
                 Log.info( "Rejected stanza sent by entity '{}' that is on the blacklist.", packet.getFrom() );
                 try {
-                    if ( JiveGlobals.getBooleanProperty( "blacklistspam.blockedlog.enabled", false ) ) {
+                    if ( BLOCKEDLOG_ENABLED.getValue() ) {
                         store(packet);
                     }
                 } catch ( final Exception e ) {
@@ -125,53 +156,17 @@ public class StanzaBlocker implements PacketInterceptor, PropertyEventListener
     /**
      * Resets all values that are obtained through properties.
      */
-    protected void refreshPropertyValues()
+    public void refreshPropertyValues()
     {
         rwl.writeLock().lock();
         try
         {
-            checkIncoming = JiveGlobals.getBooleanProperty( "blacklistspam.check.incoming", true );
-            checkOutgoing = JiveGlobals.getBooleanProperty( "blacklistspam.check.outgoing", false );
+            checkIncoming = CHECK_INCOMING.getValue();
+            checkOutgoing = CHECK_OUTGOING.getValue();
         }
         finally
         {
             rwl.writeLock().unlock();
-        }
-    }
-
-    @Override
-    public void propertySet( final String property, final Map<String, Object> params )
-    {
-        if ( Arrays.asList( "blacklistspam.check.incoming", "blacklistspam.check.outgoing" ).contains( property ) )
-        {
-            refreshPropertyValues();
-        }
-    }
-
-    @Override
-    public void propertyDeleted( final String property, final Map<String, Object> params )
-    {
-        if ( Arrays.asList( "blacklistspam.check.incoming", "blacklistspam.check.outgoing" ).contains( property ) )
-        {
-            refreshPropertyValues();
-        }
-    }
-
-    @Override
-    public void xmlPropertySet( final String property, final Map<String, Object> params )
-    {
-        if ( Arrays.asList( "blacklistspam.check.incoming", "blacklistspam.check.outgoing" ).contains( property ) )
-        {
-            refreshPropertyValues();
-        }
-    }
-
-    @Override
-    public void xmlPropertyDeleted( final String property, final Map<String, Object> params )
-    {
-        if ( Arrays.asList( "blacklistspam.check.incoming", "blacklistspam.check.outgoing" ).contains( property ) )
-        {
-            refreshPropertyValues();
         }
     }
 }

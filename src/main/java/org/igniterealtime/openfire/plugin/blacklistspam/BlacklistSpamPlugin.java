@@ -1,5 +1,5 @@
 /*
- * Copyright 2019 Ignite Realtime Foundation
+ * Copyright 2019-2024 Ignite Realtime Foundation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,34 +16,54 @@
 
 package org.igniterealtime.openfire.plugin.blacklistspam;
 
+import org.jivesoftware.openfire.XMPPServer;
 import org.jivesoftware.openfire.container.Plugin;
 import org.jivesoftware.openfire.container.PluginManager;
 import org.jivesoftware.openfire.interceptor.InterceptorManager;
-import org.jivesoftware.util.JiveGlobals;
-import org.jivesoftware.util.PropertyEventDispatcher;
-import org.jivesoftware.util.PropertyEventListener;
+import org.jivesoftware.util.SystemProperty;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.io.File;
 import java.net.MalformedURLException;
 import java.net.URL;
-import java.util.Arrays;
-import java.util.Map;
+import java.time.Duration;
+import java.time.temporal.ChronoUnit;
 import java.util.Timer;
 import java.util.TimerTask;
-import java.util.concurrent.TimeUnit;
 
 /**
- * An Openfire plugin that rejects stanzas based on the their addressing. Stanza
+ * An Openfire plugin that rejects stanzas based on their addressing. Stanza
  * addresses are compared to a list of JIDs that is periodically retrieved from
- * a HTTP endpoint.
+ * an HTTP endpoint.
  *
  * @author Guus der Kinderen, guus.der.kinderen@gmail.com
  */
-public class BlacklistSpamPlugin implements Plugin, PropertyEventListener
+public class BlacklistSpamPlugin implements Plugin
 {
     private static final Logger Log = LoggerFactory.getLogger( BlacklistSpamPlugin.class );
+
+    /**
+     * URL from where to obtain the block list, a plain-text body, with JIDs (domains) separated by newlines (one JID per line).
+     */
+    public static final SystemProperty<String> CONNECTION_CONNECT_REQUEST_URL = SystemProperty.Builder.ofType(String.class)
+        .setKey("blacklistspam.connection.request.url")
+        .setPlugin("Spam blacklist")
+        .setDefaultValue("https://igniterealtime.org/JabberSPAM/blacklist.txt")
+        .setDynamic(true)
+        .build();
+
+    /**
+     * The frequency in which to retrieve and refresh the block list.
+     */
+    public static final SystemProperty<Duration> REFRESH_INTERVAL = SystemProperty.Builder.ofType(Duration.class)
+        .setKey("blacklistspam.refresh.interval")
+        .setPlugin("Spam blacklist")
+        .setChronoUnit(ChronoUnit.MILLIS)
+        .setDefaultValue(Duration.ofDays(1))
+        .setDynamic(true)
+        .addListener((v) -> ((BlacklistSpamPlugin) XMPPServer.getInstance().getPluginManager().getPluginByName("Spam blacklist").orElseThrow()).rescheduleTask())
+        .build();
 
     private StanzaBlocker stanzaBlocker;
     private Timer timer;
@@ -52,21 +72,16 @@ public class BlacklistSpamPlugin implements Plugin, PropertyEventListener
     public synchronized void initializePlugin( final PluginManager manager, final File pluginDirectory )
     {
         stanzaBlocker = new StanzaBlocker();
-        PropertyEventDispatcher.addListener( stanzaBlocker );
         InterceptorManager.getInstance().addInterceptor( stanzaBlocker );
-        PropertyEventDispatcher.addListener( this );
         rescheduleTask();
     }
 
     @Override
     public synchronized void destroyPlugin()
     {
-        PropertyEventDispatcher.removeListener( this );
-
         if ( stanzaBlocker != null )
         {
             InterceptorManager.getInstance().removeInterceptor( stanzaBlocker );
-            PropertyEventDispatcher.removeListener( stanzaBlocker );
         }
 
         if ( timer != null )
@@ -90,7 +105,7 @@ public class BlacklistSpamPlugin implements Plugin, PropertyEventListener
             @Override
             public void run()
             {
-                final String urlValue = JiveGlobals.getProperty( "blacklistspam.connection.request.url", "https://igniterealtime.org/JabberSPAM/blacklist.txt" );
+                final String urlValue = CONNECTION_CONNECT_REQUEST_URL.getValue();
                 try
                 {
                     final URL url = new URL( urlValue );
@@ -112,43 +127,11 @@ public class BlacklistSpamPlugin implements Plugin, PropertyEventListener
             }
         },
             0,
-            JiveGlobals.getLongProperty( "blacklistspam.refresh.interval", TimeUnit.DAYS.toMillis( 1 ) )
+            REFRESH_INTERVAL.getValue().toMillis()
         );
     }
 
-    @Override
-    public void propertySet( final String property, final Map<String, Object> params )
-    {
-        if ( Arrays.asList( "blacklistspam.refresh.interval" ).contains( property ) )
-        {
-            rescheduleTask();
-        }
-    }
-
-    @Override
-    public void propertyDeleted( final String property, final Map<String, Object> params )
-    {
-        if ( Arrays.asList( "blacklistspam.refresh.interval" ).contains( property ) )
-        {
-            rescheduleTask();
-        }
-    }
-
-    @Override
-    public void xmlPropertySet( final String property, final Map<String, Object> params )
-    {
-        if ( Arrays.asList( "blacklistspam.refresh.interval" ).contains( property ) )
-        {
-            rescheduleTask();
-        }
-    }
-
-    @Override
-    public void xmlPropertyDeleted( final String property, final Map<String, Object> params )
-    {
-        if ( Arrays.asList( "blacklistspam.refresh.interval" ).contains( property ) )
-        {
-            rescheduleTask();
-        }
+    public StanzaBlocker getStanzaBlocker() {
+        return stanzaBlocker;
     }
 }
