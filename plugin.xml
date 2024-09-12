@@ -6,6 +6,6 @@
     <description>Uses an external blacklist to reject traffic from specific addresses.</description>
     <author>Ignite Realtime</author>
     <version>${project.version}</version>
-    <date>2024-09-11</date>
+    <date>2024-09-12</date>
     <minServerVersion>4.8.0</minServerVersion>
 </plugin>
